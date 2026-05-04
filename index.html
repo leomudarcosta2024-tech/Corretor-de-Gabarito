@@ -180,7 +180,7 @@
             // 1. Desenha câmera limpa
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-            let larguraPercentual = 0.60; 
+            let larguraPercentual = 0.80; 
             let alturaPercentual = 0.70;  
             let boxWidth = Math.floor(canvas.width * larguraPercentual);
             let boxHeight = Math.floor(canvas.height * alturaPercentual);
@@ -354,7 +354,7 @@
                 src = cv.imread(canvas);
                 if (src.cols === 0 || src.rows === 0) throw new Error("Falha ao capturar foto.");
 
-                let larguraPercentual = 0.60; let alturaPercentual = 0.70;  
+                let larguraPercentual = 0.80; let alturaPercentual = 0.70;  
                 let boxWidth = Math.floor(src.cols * larguraPercentual); let boxHeight = Math.floor(src.rows * alturaPercentual);
                 let startX = Math.floor((src.cols - boxWidth) / 2); let startY = Math.floor((src.rows - boxHeight) / 2);
 
