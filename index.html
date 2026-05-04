@@ -181,7 +181,7 @@
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
             let larguraPercentual = 0.85; 
-            let alturaPercentual = 0.71;  // AUMENTADO EM 3% AQUI
+            let alturaPercentual = 0.73;  // AUMENTADO EM 3% AQUI
             let boxWidth = Math.floor(canvas.width * larguraPercentual);
             let boxHeight = Math.floor(canvas.height * alturaPercentual);
             let startX = Math.floor((canvas.width - boxWidth) / 2);
@@ -354,7 +354,7 @@
                 src = cv.imread(canvas);
                 if (src.cols === 0 || src.rows === 0) throw new Error("Falha ao capturar foto.");
 
-                let larguraPercentual = 0.85; let alturaPercentual = 0.71;  // AUMENTADO EM 3% AQUI
+                let larguraPercentual = 0.85; let alturaPercentual = 0.73;  // AUMENTADO EM 3% AQUI
                 let boxWidth = Math.floor(src.cols * larguraPercentual); let boxHeight = Math.floor(src.rows * alturaPercentual);
                 let startX = Math.floor((src.cols - boxWidth) / 2); let startY = Math.floor((src.rows - boxHeight) / 2);
 
