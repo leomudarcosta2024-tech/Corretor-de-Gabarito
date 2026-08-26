@@ -8,13 +8,33 @@
     <style>
         body { font-family: Arial, sans-serif; text-align: center; background-color: #222; color: #fff; margin: 0; padding: 10px; overflow-x: hidden; }
         #config-painel { background-color: #333; padding: 15px; border-radius: 8px; margin: 10px auto; max-width: 90%; }
-        #inputGabarito { padding: 10px; font-size: 16px; border-radius: 4px; border: 1px solid #555; width: 80%; max-width: 250px; text-align: center; text-transform: uppercase; margin-bottom: 15px; }
         
-        .slider-container { margin-top: 10px; text-align: left; padding: 0 5%; }
+        /* Estilos do Gerenciador de Gabaritos */
+        .gerenciador-gabaritos { background-color: #444; padding: 10px; border-radius: 6px; margin-bottom: 15px; text-align: left; }
+        .gerenciador-gabaritos label { display: block; margin-bottom: 5px; font-size: 14px; font-weight: bold; color: #ccc;}
+        .gabarito-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
+        select { flex: 1; padding: 10px; border-radius: 4px; border: 1px solid #555; background: #222; color: white; font-size: 14px; }
+        input[type="text"].gab-input { padding: 10px; border-radius: 4px; border: 1px solid #555; background: #222; color: white; font-size: 14px; width: calc(100% - 22px); margin-bottom: 10px;}
+        
+        .btn-small { padding: 10px 12px; font-size: 14px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;}
+        .btn-danger { background-color: #dc3545; padding: 10px; }
+        .btn-success { background-color: #28a745; width: 100%; margin-top: 10px;}
+        .btn-outline { background-color: transparent; border: 2px solid #007bff; color: #007bff; width: 100%; margin-bottom: 10px; }
+
+        /* Criador Visual de Gabaritos */
+        #painelCriador { display: none; background: #2a2a2a; padding: 10px; border-radius: 6px; margin-top: 10px; border: 1px solid #555;}
+        .questoes-grid { max-height: 280px; overflow-y: auto; padding-right: 5px; margin-bottom: 10px; }
+        .questao-linha { display: flex; justify-content: space-between; align-items: center; background: #333; padding: 8px 10px; margin-bottom: 6px; border-radius: 4px; }
+        .questao-linha span { font-weight: bold; font-size: 14px; width: 35px; color: #ddd;}
+        .opcoes { display: flex; gap: 8px; }
+        .opcao-btn { width: 35px; height: 35px; border: 1px solid #666; background: #444; color: #fff; border-radius: 5px; font-weight: bold; font-size: 14px; cursor: pointer; transition: 0.2s; }
+        .opcao-btn.selecionada { background: #007bff; border-color: #007bff; color: white; transform: scale(1.1); box-shadow: 0 0 5px rgba(0,123,255,0.5); }
+
+        .slider-container { margin-top: 15px; text-align: left; padding: 0 2%; }
         .slider-container label { font-size: 14px; color: #ccc; display: flex; justify-content: space-between;}
         input[type=range] { width: 100%; margin-top: 8px; }
 
-        .toggle-container { margin-top: 15px; padding-top: 15px; border-top: 1px solid #555; text-align: left; padding-left: 5%; padding-right: 5%; display: flex; align-items: center; justify-content: space-between;}
+        .toggle-container { margin-top: 15px; padding-top: 15px; border-top: 1px solid #555; text-align: left; padding-left: 2%; padding-right: 2%; display: flex; align-items: center; justify-content: space-between;}
         .toggle-container label { font-size: 14px; color: #00ff00; font-weight: bold; }
         input[type=checkbox] { transform: scale(1.5); }
 
@@ -44,8 +64,28 @@
     <h2>Scanner de Gabarito</h2>
     
     <div id="config-painel">
-        <label><strong>Gabarito Oficial (10 Questões):</strong></label><br>
-        <input type="text" id="inputGabarito" placeholder="ABCDABCDAA" maxlength="10">
+        
+        <!-- GERENCIADOR DE GABARITOS -->
+        <div class="gerenciador-gabaritos">
+            <label>Gabarito Ativo (Para correção):</label>
+            <div class="gabarito-row">
+                <select id="selectGabarito"></select>
+                <button id="btnExcluirGab" class="btn-small btn-danger" title="Excluir Selecionado">🗑️</button>
+            </div>
+            
+            <button id="btnAbrirCriador" class="btn-small btn-outline">➕ Criar Novo Gabarito</button>
+
+            <!-- PAINEL VISUAL DE CRIAÇÃO -->
+            <div id="painelCriador">
+                <input type="text" id="nomeNovoGab" class="gab-input" placeholder="Nome (Ex: Turma A - Simulado 1)">
+                
+                <div class="questoes-grid" id="containerQuestoes">
+                    <!-- Gerado via JavaScript -->
+                </div>
+
+                <button id="btnSalvarGab" class="btn-small btn-success">💾 Salvar Gabarito</button>
+            </div>
+        </div>
         
         <div class="slider-container">
             <label>
@@ -80,6 +120,121 @@
     <div id="resultado">Posicione o celular sobre o gabarito.</div>
 
     <script>
+        // ==============================================================================
+        // LÓGICA DO CRIADOR VISUAL DE GABARITOS
+        // ==============================================================================
+        const selectGabarito = document.getElementById('selectGabarito');
+        const nomeNovoGab = document.getElementById('nomeNovoGab');
+        const btnSalvarGab = document.getElementById('btnSalvarGab');
+        const btnExcluirGab = document.getElementById('btnExcluirGab');
+        const btnAbrirCriador = document.getElementById('btnAbrirCriador');
+        const painelCriador = document.getElementById('painelCriador');
+        const containerQuestoes = document.getElementById('containerQuestoes');
+
+        let gabaritosSalvos = JSON.parse(localStorage.getItem('gabaritos_app')) || [];
+        let arrayRespostasNovoGab = new Array(10).fill('');
+
+        // Monta a grid de 10 questões
+        function renderizarCriadorVisual() {
+            containerQuestoes.innerHTML = '';
+            for (let i = 1; i <= 10; i++) {
+                let divLinha = document.createElement('div');
+                divLinha.className = 'questao-linha';
+                divLinha.innerHTML = `<span>Q${i}</span>`;
+                
+                let divOpcoes = document.createElement('div');
+                divOpcoes.className = 'opcoes';
+                
+                ['A', 'B', 'C', 'D'].forEach(letra => {
+                    let btn = document.createElement('button');
+                    btn.className = 'opcao-btn';
+                    btn.textContent = letra;
+                    btn.onclick = () => {
+                        arrayRespostasNovoGab[i - 1] = letra;
+                        Array.from(divOpcoes.children).forEach(b => b.classList.remove('selecionada'));
+                        btn.classList.add('selecionada');
+                    };
+                    divOpcoes.appendChild(btn);
+                });
+                
+                divLinha.appendChild(divOpcoes);
+                containerQuestoes.appendChild(divLinha);
+            }
+        }
+
+        // Abrir/Fechar painel de criação
+        btnAbrirCriador.addEventListener('click', () => {
+            if (painelCriador.style.display === 'block') {
+                painelCriador.style.display = 'none';
+                btnAbrirCriador.innerText = "➕ Criar Novo Gabarito";
+            } else {
+                painelCriador.style.display = 'block';
+                btnAbrirCriador.innerText = "❌ Cancelar Criação";
+                renderizarCriadorVisual();
+                arrayRespostasNovoGab.fill(''); // Reseta seleções
+                nomeNovoGab.value = '';
+            }
+        });
+
+        function atualizarSelectGabaritos() {
+            selectGabarito.innerHTML = '<option value="">Nenhum (Apenas ler marcações)</option>';
+            gabaritosSalvos.forEach((g, index) => {
+                let opt = document.createElement('option');
+                opt.value = g.sequencia;
+                // Mostra só um pedaço da sequência para não quebrar a tela
+                opt.textContent = `${g.nome} (${g.sequencia.substring(0, 4)}...)`; 
+                opt.dataset.index = index;
+                selectGabarito.appendChild(opt);
+            });
+        }
+
+        btnSalvarGab.addEventListener('click', () => {
+            let nome = nomeNovoGab.value.trim();
+            let seq = arrayRespostasNovoGab.join(''); // Junta as respostas do array
+            
+            if (!nome) {
+                alert("Por favor, dê um nome para o gabarito.");
+                return;
+            }
+            if (seq.length < 10) {
+                alert("Por favor, selecione a resposta correta para todas as 10 questões.");
+                return;
+            }
+
+            gabaritosSalvos.push({ nome: nome, sequencia: seq });
+            localStorage.setItem('gabaritos_app', JSON.stringify(gabaritosSalvos));
+            
+            atualizarSelectGabaritos();
+            
+            // Seleciona o recém-criado
+            selectGabarito.selectedIndex = gabaritosSalvos.length; 
+            
+            // Fecha painel
+            painelCriador.style.display = 'none';
+            btnAbrirCriador.innerText = "➕ Criar Novo Gabarito";
+            alert("Gabarito salvo com sucesso!");
+        });
+
+        btnExcluirGab.addEventListener('click', () => {
+            let idx = selectGabarito.options[selectGabarito.selectedIndex].dataset.index;
+            if (idx !== undefined) {
+                if(confirm("Tem certeza que deseja excluir este gabarito?")) {
+                    gabaritosSalvos.splice(idx, 1);
+                    localStorage.setItem('gabaritos_app', JSON.stringify(gabaritosSalvos));
+                    atualizarSelectGabaritos();
+                }
+            } else {
+                alert("Selecione um gabarito válido para excluir.");
+            }
+        });
+
+        // Inicializa
+        atualizarSelectGabaritos();
+
+
+        // ==============================================================================
+        // VARIÁVEIS E LÓGICA DE CÂMERA / OPENCV
+        // ==============================================================================
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -88,7 +243,6 @@
         const btnTirarFoto = document.getElementById('btnTirarFoto');
         const btnNovaFoto = document.getElementById('btnNovaFoto');
         const divResultado = document.getElementById('resultado');
-        const inputGabarito = document.getElementById('inputGabarito');
         const inputSensibilidade = document.getElementById('inputSensibilidade');
         const valorSensibilidade = document.getElementById('valorSensibilidade');
         const chkRaioX = document.getElementById('chkRaioX');
@@ -177,17 +331,15 @@
                 canvas.height = video.videoHeight;
             }
 
-            // 1. Desenha câmera limpa
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
             let larguraPercentual = 0.85; 
-            let alturaPercentual = 0.71;  // AUMENTADO MAIS 3% AQUI (Era 0.68, agora é 0.71)
+            let alturaPercentual = 0.71; 
             let boxWidth = Math.floor(canvas.width * larguraPercentual);
             let boxHeight = Math.floor(canvas.height * alturaPercentual);
             let startX = Math.floor((canvas.width - boxWidth) / 2);
             let startY = Math.floor((canvas.height - boxHeight) / 2);
 
-            // 2. Aciona o grid matemático ao vivo
             if (chkRaioX.checked) {
                 let agora = Date.now();
                 if (agora - ultimoTempoRaioX > 250 && !calculandoRaioX) {
@@ -198,13 +350,12 @@
                     } catch (e) { console.error(e); }
                 }
 
-                // Desenha o grid calculado na tela
                 malhaRaioX.forEach(g => {
                     if (g.preenchido) {
-                        ctx.strokeStyle = '#00BFFF'; // Tinta detectada (Azul forte)
+                        ctx.strokeStyle = '#00BFFF';
                         ctx.lineWidth = 3;
                     } else {
-                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)'; // Apenas área de busca calculada (Branco fraco)
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
                         ctx.lineWidth = 1;
                     }
                     ctx.strokeRect(g.rect.x + startX, g.rect.y + startY, g.rect.width, g.rect.height);
@@ -213,7 +364,6 @@
                 malhaRaioX = [];
             }
 
-            // 3. Mira Verde
             ctx.strokeStyle = '#00FF00';
             ctx.lineWidth = 4;
             ctx.strokeRect(startX, startY, boxWidth, boxHeight);
@@ -221,9 +371,6 @@
             loopMira = requestAnimationFrame(desenharMira);
         }
 
-        // ==============================================================================
-        // NOVA LÓGICA DE PROJEÇÃO DE GRID (PARA O RAIO-X AO VIVO)
-        // ==============================================================================
         function calcularMalhaMatematicaAoVivo(src, startX, startY, boxWidth, boxHeight) {
             calculandoRaioX = true;
             let roiSrc = null; let gray = null; let blur = null; let thresh = null; let contours = null; let hierarchy = null;
@@ -244,14 +391,13 @@
                 let limiteDensidade = parseFloat(inputSensibilidade.value);
                 let ancorasBrutas = [];
 
-                // PASSO 1: Achar as âncoras (Coluna de Números) na extrema esquerda (primeiros 25%)
                 for (let i = 0; i < contours.size(); ++i) {
                     let cnt = contours.get(i);
                     let area = cv.contourArea(cnt);
                     if (area > 30 && area < (boxWidth * boxHeight) * 0.10) { 
                         let rect = cv.boundingRect(cnt);
                         let cx = rect.x + (rect.width / 2);
-                        if (cx < boxWidth * 0.25) { // Somente elementos do canto esquerdo
+                        if (cx < boxWidth * 0.25) { 
                             ancorasBrutas.push({ cx: cx, cy: rect.y + (rect.height / 2), rect: rect });
                         }
                     }
@@ -259,8 +405,6 @@
                 }
 
                 ancorasBrutas.sort((a, b) => a.cy - b.cy);
-                
-                // Filtra ruídos próximos (mantém 1 por linha)
                 let ancoras = [];
                 ancorasBrutas.forEach(a => {
                     if (ancoras.length === 0 || Math.abs(a.cy - ancoras[ancoras.length-1].cy) > (boxHeight/15)) {
@@ -270,41 +414,34 @@
 
                 let novoGridVisual = [];
 
-                // PASSO 2: Se achou as âncoras da esquerda, calcula a matemática do grid
                 if (ancoras.length >= 2) {
                     let distanciasY = [];
                     for(let i=1; i < ancoras.length; i++) {
                         distanciasY.push(ancoras[i].cy - ancoras[i-1].cy);
                     }
                     distanciasY.sort((a,b) => a - b);
-                    // Pega a mediana das distâncias entre as linhas para ser o PASSO Y exato
                     let distY = distanciasY[Math.floor(distanciasY.length / 2)];
                     if (distY < 15) distY = boxHeight / 10; 
 
                     let cxBase = ancoras[0].cx;
-                    let cyBase = ancoras[0].cy; // A primeira âncora é o teto
-
-                    // Distância lateral matemática (O espaço restante dividido para as 4 letras)
+                    let cyBase = ancoras[0].cy;
                     let distX = (boxWidth - cxBase) / 4.5;
 
                     let wBusca = Math.max(15, distX * 0.65);
                     let hBusca = Math.max(15, distY * 0.65);
 
-                    // PASSO 3: Projetar o grid e caçar as marcações SÓ nesses quadrados!
                     for (let q = 0; q < 10; q++) {
                         let cy = cyBase + (q * distY);
                         if (cy > boxHeight) continue;
 
                         for (let col = 1; col <= 4; col++) {
                             let cx = cxBase + (col * distX);
-                            
                             let rx = Math.max(0, cx - (wBusca/2));
                             let ry = Math.max(0, cy - (hBusca/2));
                             let rw = Math.min(wBusca, boxWidth - rx);
                             let rh = Math.min(hBusca, boxHeight - ry);
 
                             let rectBusca = new cv.Rect(Math.floor(rx), Math.floor(ry), Math.floor(rw), Math.floor(rh));
-                            
                             let roiTinta = thresh.roi(rectBusca);
                             let densidade = cv.countNonZero(roiTinta) / (rw * rh);
                             roiTinta.delete();
@@ -324,10 +461,6 @@
                 calculandoRaioX = false;
             }
         }
-
-        // ==============================================================================
-        // FOTO CONGELADA (CORREÇÃO FINAL USANDO A NOVA MATEMÁTICA)
-        // ==============================================================================
 
         btnNovaFoto.addEventListener('click', () => {
             modoFotoTirada = false;
@@ -354,7 +487,7 @@
                 src = cv.imread(canvas);
                 if (src.cols === 0 || src.rows === 0) throw new Error("Falha ao capturar foto.");
 
-                let larguraPercentual = 0.85; let alturaPercentual = 0.71;  // AUMENTADO MAIS 3% AQUI (Era 0.68, agora é 0.71)
+                let larguraPercentual = 0.85; let alturaPercentual = 0.71; 
                 let boxWidth = Math.floor(src.cols * larguraPercentual); let boxHeight = Math.floor(src.rows * alturaPercentual);
                 let startX = Math.floor((src.cols - boxWidth) / 2); let startY = Math.floor((src.rows - boxHeight) / 2);
 
@@ -397,10 +530,9 @@
                     divResultado.innerHTML = "<strong style='color:#ffc107;'>Erro de Alinhamento!</strong><br>O aplicativo não conseguiu achar a coluna de números (1 a 10) no canto esquerdo da caixa verde. Enquadre melhor e tente novamente.";
                     btnNovaFoto.style.display = "block";
                     cv.imshow('canvas', src);
-                    return; // Aborta porque não tem como calcular a matemática sem ancoragem
+                    return; 
                 }
 
-                // MATEMÁTICA DA PROJEÇÃO
                 let distanciasY = [];
                 for(let i=1; i < ancoras.length; i++) {
                     distanciasY.push(ancoras[i].cy - ancoras[i-1].cy);
@@ -416,11 +548,10 @@
                 let wBusca = Math.max(15, distX * 0.65);
                 let hBusca = Math.max(15, distY * 0.65);
 
-                let gabaritoOficial = inputGabarito.value.toUpperCase().replace(/[^A-D]/g, '').split('');
+                let gabaritoOficial = selectGabarito.value.split('');
                 let modoCorrecao = gabaritoOficial.length > 0;
                 let htmlResultado = ``; let acertos = 0; let totalCorrigidas = 0;
 
-                // Desenha a moldura da caixa verde principal
                 cv.rectangle(src, new cv.Point(startX, startY), new cv.Point(startX + boxWidth, startY + boxHeight), new cv.Scalar(0, 255, 0, 150), 2);
 
                 for (let q = 1; q <= 10; q++) {
@@ -445,13 +576,11 @@
                         densidadesAlt[letra] = cv.countNonZero(roiTinta) / (rw * rh);
                         roiTinta.delete();
 
-                        // Desenha as caixas "fantasmas" projetadas em azul bem clarinho na foto final
                         let p1 = new cv.Point(rectBusca.x + startX, rectBusca.y + startY);
                         let p2 = new cv.Point(rectBusca.x + rectBusca.width + startX, rectBusca.y + rectBusca.height + startY);
                         cv.rectangle(src, p1, p2, new cv.Scalar(255, 255, 255, 80), 1); 
                     }
 
-                    // Verifica quem bateu a meta de preenchimento
                     let letrasMarcadas = Object.keys(densidadesAlt).filter(l => densidadesAlt[l] >= limiteDensidade);
                     letrasMarcadas.sort(); 
                     
@@ -471,7 +600,6 @@
                     }
                     htmlResultado += `<div class="res-item">Q${q}: ${textoResposta} ${statusAvaliacao}</div>`;
 
-                    // Pinta de Verde super forte as marcações que o sistema validou como certas do aluno
                     letrasMarcadas.forEach(letraMarcada => {
                         let b = coordFantasmas[letraMarcada];
                         let p1 = new cv.Point(b.x + startX, b.y + startY);
@@ -482,6 +610,8 @@
 
                 if (modoCorrecao) {
                     htmlResultado = `<div class="placar">Nota: ${acertos} / ${totalCorrigidas}</div>` + htmlResultado;
+                } else {
+                    htmlResultado = `<div class="placar" style="color: #17a2b8;">Apenas Leitura (Sem Correção)</div>` + htmlResultado;
                 }
                 divResultado.innerHTML = htmlResultado;
 
